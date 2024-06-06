@@ -30,11 +30,100 @@ function CreateCamera() {
         console.error('Rejected!', e);
     });
 }
+let audio = null;
+let context, mediaSource, notchReject, panner;
 
 function deg2rad(angle) {
     return angle * Math.PI / 180;
 }
 
+function initAC() {
+    audio = document.getElementById('audioToReject');
+
+    audio.addEventListener('play', () => {
+        if (!context) {
+            context = new AudioContext();
+            mediaSource = context.createMediaElementSource(audio);
+            panner = context.createPanner();
+            notchReject = context.createBiquadFilter();
+
+            mediaSource.connect(panner);
+            panner.connect(notchReject);
+            notchReject.connect(context.destination);
+
+            notchReject.type = 'notch';
+            notchReject.Q.value = 0.1;
+            notchReject.frequency.value = 12345;
+            context.resume();
+        }
+    })
+
+
+    audio.addEventListener('pause', () => {
+        console.log('pause');
+        context.resume();
+    })
+    let notchRejectEnabled = document.getElementById('notchRejectEnabled');
+    notchRejectEnabled.addEventListener('change', function() {
+        if (notchRejectEnabled.checked) {
+            panner.disconnect();
+            panner.connect(highpass);
+            highpass.connect(context.destination);
+        } else {
+            panner.disconnect();
+            panner.connect(context.destination);
+        }
+    });
+    audio.play();
+}
+
+function audioPosition() {
+    // Convert angles to radians
+    const alphaRad = alpha
+    const betaRad = beta
+    const gammaRad = gamma
+
+    // Define the initial vector along the x-axis
+    let vector = [0, 1, 0];
+
+    // Rotation around the z-axis (gamma)
+    const rotZ = [
+        [Math.cos(gammaRad), -Math.sin(gammaRad), 0],
+        [Math.sin(gammaRad), Math.cos(gammaRad), 0],
+        [0, 0, 1]
+    ];
+    vector = multiplyMatrixVector(rotZ, vector);
+
+    // Rotation around the y-axis (beta)
+    const rotY = [
+        [Math.cos(betaRad), 0, Math.sin(betaRad)],
+        [0, 1, 0],
+        [-Math.sin(betaRad), 0, Math.cos(betaRad)]
+    ];
+    vector = multiplyMatrixVector(rotY, vector);
+
+    // Rotation around the x-axis (alpha)
+    const rotX = [
+        [1, 0, 0],
+        [0, Math.cos(alphaRad), -Math.sin(alphaRad)],
+        [0, Math.sin(alphaRad), Math.cos(alphaRad)]
+    ];
+    vector = multiplyMatrixVector(rotX, vector);
+
+    return vector;
+}
+
+function multiplyMatrixVector(matrix, vector) {
+    const result = [];
+    for (let i = 0; i < matrix.length; i++) {
+        let sum = 0;
+        for (let j = 0; j < vector.length; j++) {
+            sum += matrix[i][j] * vector[j];
+        }
+        result.push(sum);
+    }
+    return result;
+}
 
 // Constructor
 function Model(name) {
@@ -118,12 +207,17 @@ function draw(callback = false) {
     gl.uniform3fv(shProgram.iP, [...dingDongSurface(sp.a, sp.b)]);
     gl.uniform2fv(shProgram.iSP, [mapRange(sp.a, 0, 2 * PI, 0, 1), mapRange(sp.b, minLimitV, maxLimitV, 0, 1)]);
     gl.uniform1f(shProgram.iScale, parseFloat(document.getElementById("scl").value));
-    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, m4.identity());
+    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, m4.translation(...audioPosition()));
+    if (panner) {
+        panner.setPosition(...audioPosition())
+    }
     // gl.bindTexture(gl.TEXTURE_2D, textureWebcam);
     // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, webcam);
     // background.Draw();
     // gl.bindTexture(gl.TEXTURE_2D, texture);
+    sphere.Draw()
     // gl.clear(gl.DEPTH_BUFFER_BIT);
+
     let cRange = document.getElementById('c')
     let eRange = document.getElementById('e')
     let fRange = document.getElementById('f')
@@ -146,6 +240,7 @@ function draw(callback = false) {
     gl.colorMask(false, true, true, false);
     surface.Draw();
     gl.colorMask(true, true, true, true);
+
 
 
     // gl.uniform4fv(shProgram.iColor, [0, 1, 0, 1]);

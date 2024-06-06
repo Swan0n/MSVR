@@ -5,7 +5,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 
-    <title>PA#4</title>
+    <title>RGR</title>
     <style>
         body {
             background-color: #EEEEEE;
@@ -43,7 +43,13 @@
     <label for="n">near clipping distance</label>
     <input type="range" name="n" id="n" min="0.1" max="11.1" step="0.1" value="0.1" onchange="draw()">
     <hr>
-    <button onclick="requestDeviceOrientation()" style="height: 60px;margin: 10px;">request device orientation</button>
+    <button onclick="requestDeviceOrientation()" style="height: 60px;margin: 10px;">request device
+        orientation</button><br>
+    <audio id="audioToReject" src="https://5fade639-57b9-48db-8eb3-e055c7465804-00-1ujorwj0rg3zv.janeway.replit.dev/zhyr.mp3"
+        crossorigin="anonymous" controls loop></audio>
+    <br>
+    <label for="notchRejectEnabled">Стан режекторного фільтру</label>
+    <input type="checkbox" name="notchRejectEnabled" id="notchRejectEnabled" checked>
 
     <div id="canvas-holder">
         <canvas width="600" height="600" id="webglcanvas" style="background-color:red"></canvas>
