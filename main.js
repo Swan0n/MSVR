@@ -134,13 +134,14 @@ function draw(callback = false) {
     virtualCamera.NearClippingDistance = parseFloat(nRange.value)
     virtualCamera.ApplyLeftFrustum();
     let compassRotationMatrix = m4.yRotation(deg2rad(heading));
-    modelViewProjection = m4.multiply(virtualCamera.projection, m4.multiply(virtualCamera.modelview, m4.multiply(matAccum1, compassRotationMatrix)));
+    let deviceOrienationMatrix = m4.multiply(m4.multiply(m4.xRotation(beta), m4.yRotation(gamma)), m4.zRotation(alpha));
+    modelViewProjection = m4.multiply(virtualCamera.projection, m4.multiply(virtualCamera.modelview, m4.multiply(matAccum1, deviceOrienationMatrix)));
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection);
     gl.colorMask(true, false, false, false);
     surface.Draw();
     gl.clear(gl.DEPTH_BUFFER_BIT);
     virtualCamera.ApplyRightFrustum();
-    modelViewProjection = m4.multiply(virtualCamera.projection, m4.multiply(virtualCamera.modelview, m4.multiply(matAccum1, compassRotationMatrix)));
+    modelViewProjection = m4.multiply(virtualCamera.projection, m4.multiply(virtualCamera.modelview, m4.multiply(matAccum1, deviceOrienationMatrix)));
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection);
     gl.colorMask(false, true, true, false);
     surface.Draw();
@@ -421,6 +422,7 @@ window.onkeydown = (e) => {
     draw()
 }
 let heading = 0
+let alpha = 0, beta = 0, gamma = 0;
 function requestDeviceOrientation() {
     if (typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -430,7 +432,11 @@ function requestDeviceOrientation() {
                 if (response === 'granted') {
                     console.log('Permission granted');
                     window.addEventListener('deviceorientation', e => {
+
                         // do something here
+                        alpha = deg2rad(e.alpha);
+                        beta = deg2rad(e.beta);
+                        gamma = deg2rad(e.gamma);
                         heading = e.webkitCompassHeading
                     }, true);
                 }
