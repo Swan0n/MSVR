@@ -24,9 +24,9 @@ function CreateWebcamTexture() {
 function CreateCamera() {
     webcam = document.createElement('video');
     webcam.setAttribute('autoplay', true);
-    navigator.getUserMedia({ video: true, audio: false }, function (stream) {
+    navigator.getUserMedia({ video: true, audio: false }, function(stream) {
         webcam.srcObject = stream;
-    }, function (e) {
+    }, function(e) {
         console.error('Rejected!', e);
     });
 }
@@ -43,7 +43,7 @@ function Model(name) {
     this.iTBuffer = gl.createBuffer();
     this.count = 0;
 
-    this.BufferData = function (vertices, ts) {
+    this.BufferData = function(vertices, ts) {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
@@ -54,7 +54,7 @@ function Model(name) {
         this.count = vertices.length / 3;
     }
 
-    this.Draw = function () {
+    this.Draw = function() {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
@@ -81,7 +81,7 @@ function ShaderProgram(name, program) {
     // Location of the uniform matrix representing the combined transformation.
     this.iModelViewProjectionMatrix = -1;
 
-    this.Use = function () {
+    this.Use = function() {
         gl.useProgram(this.prog);
     }
 }
@@ -119,11 +119,11 @@ function draw(callback = false) {
     gl.uniform2fv(shProgram.iSP, [mapRange(sp.a, 0, 2 * PI, 0, 1), mapRange(sp.b, minLimitV, maxLimitV, 0, 1)]);
     gl.uniform1f(shProgram.iScale, parseFloat(document.getElementById("scl").value));
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, m4.identity());
-    gl.bindTexture(gl.TEXTURE_2D, textureWebcam);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, webcam);
-    background.Draw();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.clear(gl.DEPTH_BUFFER_BIT);
+    // gl.bindTexture(gl.TEXTURE_2D, textureWebcam);
+    // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, webcam);
+    // background.Draw();
+    // gl.bindTexture(gl.TEXTURE_2D, texture);
+    // gl.clear(gl.DEPTH_BUFFER_BIT);
     let cRange = document.getElementById('c')
     let eRange = document.getElementById('e')
     let fRange = document.getElementById('f')
@@ -133,13 +133,14 @@ function draw(callback = false) {
     virtualCamera.FOV = parseFloat(fRange.value)
     virtualCamera.NearClippingDistance = parseFloat(nRange.value)
     virtualCamera.ApplyLeftFrustum();
-    modelViewProjection = m4.multiply(virtualCamera.projection, m4.multiply(virtualCamera.modelview, matAccum1));
+    let compassRotationMatrix = m4.yRotation(deg2rad(heading));
+    modelViewProjection = m4.multiply(virtualCamera.projection, m4.multiply(virtualCamera.modelview, m4.multiply(matAccum1, compassRotationMatrix)));
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection);
     gl.colorMask(true, false, false, false);
     surface.Draw();
     gl.clear(gl.DEPTH_BUFFER_BIT);
     virtualCamera.ApplyRightFrustum();
-    modelViewProjection = m4.multiply(virtualCamera.projection, m4.multiply(virtualCamera.modelview, matAccum1));
+    modelViewProjection = m4.multiply(virtualCamera.projection, m4.multiply(virtualCamera.modelview, m4.multiply(matAccum1, compassRotationMatrix)));
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection);
     gl.colorMask(false, true, true, false);
     surface.Draw();
@@ -350,13 +351,13 @@ function CreatePlaneTextureData() {
  */
 function init() {
     virtualCamera = new StereoCamera(10, 2, 1, 40, 0.1, 40);
-    CreateCamera()
+    // CreateCamera()
     let canvas;
     try {
         canvas = document.getElementById("webglcanvas");
         gl = canvas.getContext("webgl");
         LoadTexture();
-        CreateWebcamTexture();
+        // CreateWebcamTexture();
         if (!gl) {
             throw "Browser does not support WebGL";
         }
@@ -418,4 +419,24 @@ window.onkeydown = (e) => {
         sp.b = Math.max(sp.b - 0.1, minLimitV);
     }
     draw()
+}
+let heading = 0
+function requestDeviceOrientation() {
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+            .then(response => {
+                console.log(response);
+                if (response === 'granted') {
+                    console.log('Permission granted');
+                    window.addEventListener('deviceorientation', e => {
+                        // do something here
+                        heading = e.webkitCompassHeading
+                    }, true);
+                }
+            }).catch((err => {
+                console.log('Err', err);
+            }));
+    } else
+        console.log('not iOS');
 }
