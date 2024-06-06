@@ -8,6 +8,29 @@ let sp = { a: 0.5, b: 0.5 }
 let minLimitV = -1
 let maxLimitV = 1
 let virtualCamera;
+let textureWebcam;
+let webcam;
+let texture;
+let background;
+function CreateWebcamTexture() {
+    textureWebcam = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, textureWebcam);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+}
+
+function CreateCamera() {
+    webcam = document.createElement('video');
+    webcam.setAttribute('autoplay', true);
+    navigator.getUserMedia({ video: true, audio: false }, function (stream) {
+        webcam.srcObject = stream;
+    }, function (e) {
+        console.error('Rejected!', e);
+    });
+}
+
 function deg2rad(angle) {
     return angle * Math.PI / 180;
 }
@@ -68,7 +91,7 @@ function ShaderProgram(name, program) {
  * (Note that the use of the above drawPrimitive function is not an efficient
  * way to draw with WebGL.  Here, the geometry is so simple that it doesn't matter.)
  */
-function draw() {
+function draw(callback = false) {
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -95,6 +118,12 @@ function draw() {
     gl.uniform3fv(shProgram.iP, [...dingDongSurface(sp.a, sp.b)]);
     gl.uniform2fv(shProgram.iSP, [mapRange(sp.a, 0, 2 * PI, 0, 1), mapRange(sp.b, minLimitV, maxLimitV, 0, 1)]);
     gl.uniform1f(shProgram.iScale, parseFloat(document.getElementById("scl").value));
+    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, m4.identity());
+    gl.bindTexture(gl.TEXTURE_2D, textureWebcam);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, webcam);
+    background.Draw();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
     let cRange = document.getElementById('c')
     let eRange = document.getElementById('e')
     let fRange = document.getElementById('f')
@@ -119,6 +148,9 @@ function draw() {
 
     // gl.uniform4fv(shProgram.iColor, [0, 1, 0, 1]);
     // sphere.Draw();
+    if (callback) {
+        window.requestAnimationFrame(() => draw(true));
+    }
 }
 
 function update() {
@@ -194,6 +226,8 @@ function initGL() {
     surface.BufferData(CreateSurfaceData(), CreateTData());
     sphere = new Model('Sphere')
     sphere.BufferData(CreateSphereSurfaceData(), CreateSphereSurfaceData())
+    background = new Model('Plane')
+    background.BufferData(CreatePlaneSurfaceData(), CreatePlaneTextureData())
 
     gl.enable(gl.DEPTH_TEST);
 }
@@ -282,17 +316,47 @@ function sphereSurface(long, lat) {
     }
 }
 
+function CreatePlaneSurfaceData() {
+    const vertices = [
+        [-1, -1, 0],
+        [1, 1, 0],
+        [1, -1, 0],
+        [-1, 1, 0]
+    ]
+    const indices = [0, 1, 2, 1, 0, 3]
+    let vertexList = []
+    indices.forEach(i => {
+        vertexList.push(...vertices[i])
+    })
+    return vertexList;
+}
+function CreatePlaneTextureData() {
+    const textures = [
+        [1, 1],
+        [0, 0],
+        [0, 1],
+        [1, 0]]
+    const indices = [0, 1, 2, 1, 0, 3]
+    let textureList = []
+    indices.forEach(i => {
+        textureList.push(...textures[i])
+    })
+    return textureList;
+}
+
 
 /**
  * initialization function that will be called when the page has loaded
  */
 function init() {
     virtualCamera = new StereoCamera(10, 2, 1, 40, 0.1, 40);
+    CreateCamera()
     let canvas;
     try {
         canvas = document.getElementById("webglcanvas");
         gl = canvas.getContext("webgl");
         LoadTexture();
+        CreateWebcamTexture();
         if (!gl) {
             throw "Browser does not support WebGL";
         }
@@ -313,11 +377,11 @@ function init() {
 
     spaceball = new TrackballRotator(canvas, draw, 0);
 
-    draw();
+    draw(true);
 }
 
 function LoadTexture() {
-    let texture = gl.createTexture();
+    texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
